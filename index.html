@@ -37,6 +37,7 @@ video{width:100%;height:100%;object-fit:cover}
 #gal{overflow:auto;padding:calc(var(--pad-t) + 10px) 10px calc(var(--pad-b) + 10px)}
 #grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
 #grid img{width:100%;aspect-ratio:1;object-fit:cover;background:#222}
+input[type=text]{width:100%;padding:12px;border-radius:10px;border:0;background:#2c2c2e;color:#fff;font-size:16px;margin:6px 0 12px}
 #msg{position:fixed;left:50%;bottom:calc(var(--pad-b) + 110px);transform:translateX(-50%);background:rgba(50,50,50,.95);padding:9px 14px;border-radius:14px;font-size:14px;display:none;max-width:90%;text-align:center;z-index:9}
 </style></head><body>
 
@@ -44,6 +45,7 @@ video{width:100%;height:100%;object-fit:cover}
   <div id="cam"><video id="vid" autoplay playsinline muted></video><div id="ask"><button class="btn pri" id="bask" style="font-size:18px;padding:16px 26px">Включить камеру</button><div id="err">Нажми, чтобы разрешить доступ</div></div><div id="cross"></div><div id="hud">Ищу GPS…</div></div>
   <div id="bar">
     <button id="shut" aria-label="Снять"></button>
+    <button class="btn" id="bset">⚙️</button>
     <button class="btn" id="bt">🔦</button>
     <button class="btn on" id="bx">Крест</button>
   </div>
@@ -61,13 +63,21 @@ video{width:100%;height:100%;object-fit:cover}
 </div>
 
 
+<div class="v" id="vs"><div style="padding:calc(var(--pad-t) + 16px) 16px;overflow:auto;font-size:15px;line-height:1.4">
+<h3 style="margin:0 0 10px">Отправка в Telegram</h3>
+Токен бота (от @BotFather)<input type="text" id="tk" autocomplete="off" autocapitalize="off" spellcheck="false">
+Chat ID<input type="text" id="ci" autocomplete="off" inputmode="numeric">
+<div class="row"><button class="btn" id="bfind">Найти Chat ID</button><button class="btn" id="btest">Тест</button></div>
+<label style="display:block;margin:10px 0"><input type="checkbox" id="pp"> Ещё открывать меню сохранения в Фото</label>
+<div style="opacity:.7;font-size:13px;margin-bottom:14px">1) В Telegram найди @BotFather, отправь /newbot, получишь токен. 2) Открой своего бота и нажми Start. 3) Вставь токен сюда и нажми «Найти Chat ID». Токен хранится только в этом телефоне.</div>
+<button class="btn pri" id="bok" style="width:100%">Готово</button></div></div>
 <input type="file" id="fi" accept="image/*" capture="environment" hidden>
 <div id="msg"></div>
 
 <script>
 const $=id=>document.getElementById(id);
 const msg=t=>{const m=$('msg');m.textContent=t;m.style.display='block';clearTimeout(msg.t);msg.t=setTimeout(()=>m.style.display='none',3500)};
-const show=id=>{['vc','ed'].forEach(v=>$(v).classList.toggle('on',v===id))};
+const show=id=>{['vc','ed','vs'].forEach(v=>$(v).classList.toggle('on',v===id))};
 let pos=null,head=null,stream=null;
 
 // GPS
@@ -119,7 +129,9 @@ let cross=true;$('bx').onclick=()=>{cross=!cross;$('cross').style.display=cross?
 // Capture
 const B=$('base'),D=$('dr'),bx=B.getContext('2d'),dx=D.getContext('2d');
 let strokes=[],cur=null,color='#ff453a';
-function loadBase(src,w,h){B.width=D.width=w;B.height=D.height=h;bx.drawImage(src,0,0,w,h);stamp(w,h);strokes=[];redraw();show('ed')}
+function loadBase(src,w,h){B.width=D.width=w;B.height=D.height=h;bx.drawImage(src,0,0,w,h);stamp(w,h);if(cross)drawCross(w,h);strokes=[];redraw();show('ed')}
+function drawCross(w,h){const m=Math.max(w,h),r=m/45,lw=Math.max(2,m/600),x=w/2,y=h/2;
+ [['#000',lw*2.2],['#fff',lw]].forEach(([c,k])=>{bx.strokeStyle=c;bx.lineWidth=k;bx.lineCap='round';bx.beginPath();bx.moveTo(x-r,y);bx.lineTo(x+r,y);bx.moveTo(x,y-r);bx.lineTo(x,y+r);bx.stroke()})}
 function stamp(w,h){const s=Math.max(w,h)/55,c=pos&&pos.coords;
  bx.font=`${s}px -apple-system,Helvetica,Arial,sans-serif`;bx.textBaseline='top';
  const top=[c?`${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)}`:'GPS: нет данных',
@@ -152,10 +164,34 @@ $('bu').onclick=()=>{strokes.pop();redraw()};$('bc').onclick=()=>{strokes=[];red
 $('bd').onclick=()=>show('vc');
 
 // Save
+// Telegram
+const cfg=()=>({t:localStorage.tgT||'',c:localStorage.tgC||'',p:localStorage.tgP!=='0'});
+const dbp=new Promise((res,rej)=>{const r=indexedDB.open('gpscam',1);r.onupgradeneeded=()=>r.result.createObjectStore('q',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const tx=async(m,f)=>{const d=await dbp;return new Promise((res,rej)=>{const t=d.transaction('q',m),r=f(t.objectStore('q'));t.oncomplete=()=>res(r.result);t.onerror=()=>rej(t.error)})};
+let fl=false;
+async function flush(){const c=cfg();if(fl||!c.t||!c.c||!navigator.onLine)return;fl=true;
+ try{const ks=await tx('readonly',s=>s.getAllKeys()),vs=await tx('readonly',s=>s.getAll());
+  for(let i=0;i<ks.length;i++){const v=vs[i],f=new FormData();f.append('chat_id',c.c);f.append('caption',v.cap);f.append('document',v.blob,v.name);
+   const j=await(await fetch(`https://api.telegram.org/bot${c.t}/sendDocument`,{method:'POST',body:f})).json();
+   if(j.ok){await tx('readwrite',s=>s.delete(ks[i]));msg('✈️ Отправлено в Telegram')}else{msg('Telegram: '+(j.description||'ошибка'));break}}
+ }catch(e){}fl=false}
+addEventListener('online',flush);setTimeout(flush,1500);
+const tg=(m,p)=>fetch(`https://api.telegram.org/bot${$('tk').value.trim()}/${m}`,p).then(r=>r.json());
+$('bset').onclick=()=>{const c=cfg();$('tk').value=c.t;$('ci').value=c.c;$('pp').checked=c.p;show('vs')};
+$('bok').onclick=()=>{localStorage.tgT=$('tk').value.trim();localStorage.tgC=$('ci').value.trim();localStorage.tgP=$('pp').checked?'1':'0';show('vc');flush()};
+$('bfind').onclick=async()=>{try{const j=await tg('getUpdates');const u=(j.result||[]).reverse().find(x=>x.message);
+ if(u){$('ci').value=u.message.chat.id;msg('Chat ID найден')}else msg(j.ok?'Сначала открой бота в Telegram и нажми Start':'Токен неверный')}catch(e){msg('Нет интернета')}};
+$('btest').onclick=async()=>{try{const j=await tg('sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:$('ci').value.trim(),text:'GPS Камера подключена ✅'})});msg(j.ok?'Проверь Telegram':'Ошибка: '+j.description)}catch(e){msg('Нет интернета')}};
+
+// Save
 $('bs').onclick=async()=>{
- const blob=await merged(),name='gps_'+Date.now()+'.jpg',file=new File([blob],name,{type:'image/jpeg'});
+ const blob=await merged(),name='gps_'+Date.now()+'.jpg',file=new File([blob],name,{type:'image/jpeg'}),c=cfg(),d=new Date().toLocaleString('ru-RU');
+ if(c.t&&c.c){const p=pos&&pos.coords;
+  const cap=p?`📍 ${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}\n±${Math.round(p.accuracy)}м, высота ${p.altitude!=null?Math.round(p.altitude)+'м':'—'}\nhttps://maps.google.com/?q=${p.latitude},${p.longitude}\n${d}`:d;
+  tx('readwrite',s=>s.add({blob,cap,name})).then(flush);
+  if(!c.p){msg('Отправляю в Telegram…');show('vc');return}}
  try{
-  if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});msg('Готово. Выбери «Сохранить изображение», чтобы оно попало в Фото');show('vc');return}
+  if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});msg('Выбери «Сохранить изображение», чтобы оно попало в Фото');show('vc');return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();msg('Сохранено в загрузки');show('vc')
  }catch(e){if(e&&e.name!=='AbortError')msg('Не удалось сохранить: '+(e.message||e.name))}};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
