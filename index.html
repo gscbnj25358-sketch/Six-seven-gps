@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GPS Камера">
+<link rel="apple-touch-icon" href="icon.png">
+<title>GPS Камера</title>
+<style>
+:root{box-sizing:border-box;--bg:#000;--fg:#fff;--ac:#0a84ff;--pad-t:env(safe-area-inset-top,0px);--pad-b:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--fg:#fff}}
+:root[data-theme="dark"]{--bg:#000;--fg:#fff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,system-ui,Roboto,sans-serif;overflow:hidden}
+.v{position:absolute;inset:0;display:none;flex-direction:column}
+.v.on{display:flex}
+#cam{position:relative;flex:1;background:#000;overflow:hidden}
+video{width:100%;height:100%;object-fit:cover}
+#hud{position:absolute;top:0;left:0;right:0;padding:calc(var(--pad-t) + 6px) 10px 6px;background:rgba(0,0,0,.45);font-size:13px;line-height:1.4;font-variant-numeric:tabular-nums}
+#cross{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;pointer-events:none}
+#cross:before,#cross:after{content:"";position:absolute;background:#fff;box-shadow:0 0 2px #000}
+#cross:before{left:21px;top:0;width:2px;height:44px}#cross:after{top:21px;left:0;height:2px;width:44px}
+#ask{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;text-align:center;font-size:14px;background:#000}
+#bar{display:flex;align-items:center;justify-content:space-around;padding:14px 10px calc(var(--pad-b) + 14px);background:#000}
+.btn{background:#2c2c2e;color:#fff;border:0;border-radius:22px;padding:11px 16px;font-size:15px}
+.btn.on{background:var(--ac)}.btn.pri{background:var(--ac)}.btn.red{background:#ff453a}
+#shut{width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 4px #000}
+#ed{background:#000}
+#stage{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding-top:var(--pad-t)}
+#wrap{position:relative;max-width:100%;max-height:100%;line-height:0}
+#wrap canvas{max-width:100vw;max-height:calc(100dvh - 190px - var(--pad-t) - var(--pad-b));width:auto;height:auto}
+#dr{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none}
+.row{display:flex;gap:10px;justify-content:center;align-items:center;padding:8px;flex-wrap:wrap}
+.sw{width:30px;height:30px;border-radius:50%;border:3px solid transparent}
+.sw.s{border-color:#fff}
+#ed .row:last-child{padding-bottom:calc(var(--pad-b) + 12px)}
+#gal{overflow:auto;padding:calc(var(--pad-t) + 10px) 10px calc(var(--pad-b) + 10px)}
+#grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+#grid img{width:100%;aspect-ratio:1;object-fit:cover;background:#222}
+#msg{position:fixed;left:50%;bottom:calc(var(--pad-b) + 110px);transform:translateX(-50%);background:rgba(50,50,50,.95);padding:9px 14px;border-radius:14px;font-size:14px;display:none;max-width:90%;text-align:center;z-index:9}
+</style></head><body>
+
+<div class="v on" id="vc">
+  <div id="cam"><video id="vid" autoplay playsinline muted></video><div id="ask"><button class="btn pri" id="bask" style="font-size:18px;padding:16px 26px">Включить камеру</button><div id="err">Нажми, чтобы разрешить доступ</div></div><div id="cross"></div><div id="hud">Ищу GPS…</div></div>
+  <div id="bar">
+    <button id="shut" aria-label="Снять"></button>
+    <button class="btn" id="bt">🔦</button>
+    <button class="btn on" id="bx">Крест</button>
+  </div>
+</div>
+
+<div class="v" id="ed">
+  <div id="stage"><div id="wrap"><canvas id="base"></canvas><canvas id="dr"></canvas></div></div>
+  <div class="row" id="cols"></div>
+  <div class="row">
+    <button class="btn red" id="bd">Удалить</button>
+    <button class="btn" id="bu">Отменить</button>
+    <button class="btn" id="bc">Очистить</button>
+    <button class="btn pri" id="bs">Сохранить</button>
+  </div>
+</div>
+
+
+<input type="file" id="fi" accept="image/*" capture="environment" hidden>
+<div id="msg"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const msg=t=>{const m=$('msg');m.textContent=t;m.style.display='block';clearTimeout(msg.t);msg.t=setTimeout(()=>m.style.display='none',3500)};
+const show=id=>{['vc','ed'].forEach(v=>$(v).classList.toggle('on',v===id))};
+let pos=null,head=null,stream=null;
+
+// GPS
+let gpsErr='',wid=null,hi=true;
+function accCol(a){return a<=3?'#ffffff':a<=8?'#30d158':a<=12?'#ffd60a':'#ff453a'}
+function hud(){const h=$('hud');
+ if(!pos){h.textContent='GPS: нет данных. Нажми сюда, чтобы включить'+(gpsErr?'\n'+gpsErr:'');return}
+ const c=pos.coords,a=Math.round(c.accuracy);
+ h.innerHTML=`${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)}  <b style="color:${accCol(c.accuracy)};font-size:16px">●&nbsp;±${a}м</b><br>`+
+ `Высота: ${c.altitude!=null?Math.round(c.altitude)+'м':'—'}  Курс: ${head!=null?Math.round(head)+'°':'—'}`}
+function startGps(){
+ if(!navigator.geolocation){gpsErr='Геолокация не поддерживается';hud();return}
+ if(wid!=null)navigator.geolocation.clearWatch(wid);
+ gpsErr='Определяю местоположение…';hud();
+ wid=navigator.geolocation.watchPosition(p=>{pos=p;gpsErr='';hud()},e=>{
+  if(e.code===1)gpsErr='Доступ к геолокации запрещён (в настройках iPhone: Safari → Геолокация, или браузер внутри приложения не разрешает)';
+  else if(hi){hi=false;gpsErr='Спутники не видны, пробую по сети…';startGps()}
+  else gpsErr='Не удалось определить место: '+e.message;
+  hud()},{enableHighAccuracy:hi,maximumAge:5000,timeout:20000})}
+$('hud').onclick=startGps;
+startGps();
+function onOri(e){const h=e.webkitCompassHeading??(e.alpha!=null?360-e.alpha:null);if(h!=null){head=h;hud()}}
+async function compass(){try{if(window.DeviceOrientationEvent&&DeviceOrientationEvent.requestPermission){const r=await DeviceOrientationEvent.requestPermission();if(r!=='granted')return}
+ addEventListener('deviceorientation',onOri,true)}catch(e){}}
+
+// Camera
+async function startCam(){
+ $('err').textContent='Запрашиваю доступ…';
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+  $('vid').srcObject=stream;$('ask').style.display='none';
+ }catch(e){stream=null;
+  $('err').innerHTML='Камера заблокирована ('+(e.name||'ошибка')+').<br>Внутри этой страницы Safari не даёт доступ. Кнопка «Снять» откроет системную камеру, штамп и рисование работают так же.'}
+}
+$('bask').onclick=startCam;
+if(navigator.permissions&&navigator.permissions.query)navigator.permissions.query({name:'camera'}).then(r=>{if(r.state==='granted')startCam()}).catch(()=>{});
+
+// Torch
+let torch=false;
+$('bt').onclick=async()=>{
+ const t=stream&&stream.getVideoTracks()[0];
+ if(!t){msg('Фонарик работает только при включённой камере');return}
+ const caps=t.getCapabilities?t.getCapabilities():{};
+ if(!caps.torch){msg('Safari на iPhone не даёт управлять фонариком из веб-страниц');return}
+ try{torch=!torch;await t.applyConstraints({advanced:[{torch}]});$('bt').classList.toggle('on',torch)}catch(e){torch=false;msg('Не удалось включить фонарик')}};
+
+// Crosshair
+let cross=true;$('bx').onclick=()=>{cross=!cross;$('cross').style.display=cross?'block':'none';$('bx').classList.toggle('on',cross)};
+
+// Capture
+const B=$('base'),D=$('dr'),bx=B.getContext('2d'),dx=D.getContext('2d');
+let strokes=[],cur=null,color='#ff453a';
+function loadBase(src,w,h){B.width=D.width=w;B.height=D.height=h;bx.drawImage(src,0,0,w,h);stamp(w,h);strokes=[];redraw();show('ed')}
+function stamp(w,h){const s=Math.max(w,h)/55,c=pos&&pos.coords;
+ bx.font=`${s}px -apple-system,Helvetica,Arial,sans-serif`;bx.textBaseline='top';
+ const top=[c?`${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)}`:'GPS: нет данных',
+  `Высота ${c&&c.altitude!=null?Math.round(c.altitude)+'м':'—'}  Курс ${head!=null?Math.round(head)+'°':'—'}`];
+ const bh=s*1.3*3+s*.6;bx.fillStyle='rgba(0,0,0,.55)';bx.fillRect(0,0,w,bh);
+ bx.fillStyle='#fff';bx.fillText(top[0],s*.5,s*.3);
+ bx.fillStyle=c?accCol(c.accuracy):'#fff';bx.fillText(c?`● Точность ±${Math.round(c.accuracy)}м`:'',s*.5,s*.3+s*1.3);
+ bx.fillStyle='#fff';bx.fillText(top[1],s*.5,s*.3+s*2.6);
+ const d=new Date().toLocaleString('ru-RU');bx.fillStyle='rgba(0,0,0,.55)';bx.fillRect(0,h-s*1.9,w,s*1.9);
+ bx.fillStyle='#fff';bx.fillText(d,s*.5,h-s*1.5)}
+$('shut').onclick=()=>{compass();if(!pos)startGps();
+ const v=$('vid');if(stream&&v.videoWidth){loadBase(v,v.videoWidth,v.videoHeight)}else $('fi').click()};
+$('fi').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();
+ im.onload=()=>{const k=Math.min(1,2400/Math.max(im.width,im.height));loadBase(im,im.width*k|0,im.height*k|0);URL.revokeObjectURL(im.src)};
+ im.src=URL.createObjectURL(f);e.target.value=''};
+document.body.addEventListener('click',compass,{once:true});
+
+// Drawing
+const cols=['#ff453a','#ff9f0a','#ffd60a','#30d158','#64d2ff','#0a84ff','#bf5af2','#ffffff'];
+cols.forEach(c=>{const b=document.createElement('button');b.className='sw'+(c===color?' s':'');b.style.background=c;
+ b.onclick=()=>{color=c;document.querySelectorAll('.sw').forEach(x=>x.classList.toggle('s',x===b))};$('cols').appendChild(b)});
+function redraw(){dx.clearRect(0,0,D.width,D.height);dx.lineCap=dx.lineJoin='round';
+ strokes.concat(cur?[cur]:[]).forEach(s=>{dx.strokeStyle=s.c;dx.lineWidth=s.w;dx.beginPath();
+  s.p.forEach((q,i)=>i?dx.lineTo(q[0],q[1]):dx.moveTo(q[0],q[1]));if(s.p.length===1)dx.lineTo(s.p[0][0]+.1,s.p[0][1]);dx.stroke()})}
+const pt=e=>{const r=D.getBoundingClientRect();return[(e.clientX-r.left)*D.width/r.width,(e.clientY-r.top)*D.height/r.height]};
+D.onpointerdown=e=>{D.setPointerCapture(e.pointerId);cur={c:color,w:Math.max(D.width,D.height)/180,p:[pt(e)]};redraw()};
+D.onpointermove=e=>{if(cur){cur.p.push(pt(e));redraw()}};
+D.onpointerup=D.onpointercancel=()=>{if(cur){strokes.push(cur);cur=null;redraw()}};
+$('bu').onclick=()=>{strokes.pop();redraw()};$('bc').onclick=()=>{strokes=[];redraw()};
+$('bd').onclick=()=>show('vc');
+
+// Save
+$('bs').onclick=async()=>{
+ const blob=await merged(),name='gps_'+Date.now()+'.jpg',file=new File([blob],name,{type:'image/jpeg'});
+ try{
+  if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});msg('Готово. Выбери «Сохранить изображение», чтобы оно попало в Фото');show('vc');return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();msg('Сохранено в загрузки');show('vc')
+ }catch(e){if(e&&e.name!=='AbortError')msg('Не удалось сохранить: '+(e.message||e.name))}};
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
