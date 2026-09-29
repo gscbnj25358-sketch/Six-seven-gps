@@ -17,18 +17,18 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:
 #cam{position:relative;flex:1;background:#000;overflow:hidden}
 video{width:100%;height:100%;object-fit:cover}
 #hud{position:absolute;top:0;left:0;right:0;padding:calc(var(--pad-t) + 6px) 10px 6px;background:rgba(0,0,0,.45);font-size:13px;line-height:1.4;font-variant-numeric:tabular-nums}
-#cross{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;pointer-events:none}
+#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none}
 #cross:before,#cross:after{content:"";position:absolute;background:#fff;box-shadow:0 0 2px #000}
-#cross:before{left:21px;top:0;width:2px;height:44px}#cross:after{top:21px;left:0;height:2px;width:44px}
+#cross:before{left:9.5px;top:0;width:3px;height:22px}#cross:after{top:9.5px;left:0;height:3px;width:22px}
 #ask{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;text-align:center;font-size:14px;background:#000}
 #bar{display:flex;align-items:center;justify-content:space-around;padding:14px 10px calc(var(--pad-b) + 14px);background:#000}
 .btn{background:#2c2c2e;color:#fff;border:0;border-radius:22px;padding:11px 16px;font-size:15px}
 .btn.on{background:var(--ac)}.btn.pri{background:var(--ac)}.btn.red{background:#ff453a}
-#shut{width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 4px #000}
+#shut{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:#000;width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 4px #000}
 #ed{background:#000}
-#stage{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding-top:var(--pad-t)}
+#stage{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
 #wrap{position:relative;max-width:100%;max-height:100%;line-height:0}
-#wrap canvas{max-width:100vw;max-height:calc(100dvh - 190px - var(--pad-t) - var(--pad-b));width:auto;height:auto}
+#wrap canvas{max-width:100vw;max-height:calc(100dvh - 260px - var(--pad-t) - var(--pad-b));width:auto;height:auto}
 #dr{position:absolute;left:0;top:0;width:100%;height:100%;touch-action:none}
 .row{display:flex;gap:10px;justify-content:center;align-items:center;padding:8px;flex-wrap:wrap}
 .sw{width:30px;height:30px;border-radius:50%;border:3px solid transparent}
@@ -44,7 +44,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:0;background:
 <div class="v on" id="vc">
   <div id="cam"><video id="vid" autoplay playsinline muted></video><div id="ask"><button class="btn pri" id="bask" style="font-size:18px;padding:16px 26px">Включить камеру</button><div id="err">Нажми, чтобы разрешить доступ</div></div><div id="cross"></div><div id="hud">Ищу GPS…</div></div>
   <div id="bar">
-    <button id="shut" aria-label="Снять"></button>
+    <button id="shut" aria-label="Снять"><span id="sa">GPS</span></button>
     <button class="btn" id="bset">⚙️</button>
     <button class="btn" id="bt">🔦</button>
     <button class="btn on" id="bx">Крест</button>
@@ -52,13 +52,14 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:0;background:
 </div>
 
 <div class="v" id="ed">
+  <div class="row" style="padding-top:calc(var(--pad-t) + 8px)"><button class="btn pri" id="btg" style="font-size:17px;padding:13px 22px">✈️ Отправить в Telegram</button></div>
   <div id="stage"><div id="wrap"><canvas id="base"></canvas><canvas id="dr"></canvas></div></div>
   <div class="row" id="cols"></div>
   <div class="row">
     <button class="btn red" id="bd">Удалить</button>
     <button class="btn" id="bu">Отменить</button>
     <button class="btn" id="bc">Очистить</button>
-    <button class="btn pri" id="bs">Сохранить</button>
+    <button class="btn pri" id="bs">В Фото</button>
   </div>
 </div>
 
@@ -68,7 +69,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:0;background:
 Токен бота (от @BotFather)<input type="text" id="tk" autocomplete="off" autocapitalize="off" spellcheck="false">
 Chat ID<input type="text" id="ci" autocomplete="off" inputmode="numeric">
 <div class="row"><button class="btn" id="bfind">Найти Chat ID</button><button class="btn" id="btest">Тест</button></div>
-<label style="display:block;margin:10px 0"><input type="checkbox" id="pp"> Ещё открывать меню сохранения в Фото</label>
+
 <div style="opacity:.7;font-size:13px;margin-bottom:14px">1) В Telegram найди @BotFather, отправь /newbot, получишь токен. 2) Открой своего бота и нажми Start. 3) Вставь токен сюда и нажми «Найти Chat ID». Токен хранится только в этом телефоне.</div>
 <button class="btn pri" id="bok" style="width:100%">Готово</button></div></div>
 <input type="file" id="fi" accept="image/*" capture="environment" hidden>
@@ -76,7 +77,7 @@ Chat ID<input type="text" id="ci" autocomplete="off" inputmode="numeric">
 
 <script>
 const $=id=>document.getElementById(id);
-const msg=t=>{const m=$('msg');m.textContent=t;m.style.display='block';clearTimeout(msg.t);msg.t=setTimeout(()=>m.style.display='none',3500)};
+const msg=t=>{const m=$('msg');m.textContent=t;m.style.display='block';clearTimeout(msg.t);msg.t=setTimeout(()=>m.style.display='none',5000)};
 const show=id=>{['vc','ed','vs'].forEach(v=>$(v).classList.toggle('on',v===id))};
 let pos=null,head=null,stream=null;
 
@@ -84,8 +85,8 @@ let pos=null,head=null,stream=null;
 let gpsErr='',wid=null,hi=true;
 function accCol(a){return a<=3?'#ffffff':a<=8?'#30d158':a<=12?'#ffd60a':'#ff453a'}
 function hud(){const h=$('hud');
- if(!pos){h.textContent='GPS: нет данных. Нажми сюда, чтобы включить'+(gpsErr?'\n'+gpsErr:'');return}
- const c=pos.coords,a=Math.round(c.accuracy);
+ if(!pos){h.textContent='GPS: нет данных. Нажми сюда, чтобы включить'+(gpsErr?'\n'+gpsErr:'');$('shut').style.background='#8e8e93';$('sa').textContent='GPS';return}
+ const c=pos.coords,a=Math.round(c.accuracy);$('shut').style.background=accCol(c.accuracy);$('sa').textContent='±'+a;
  h.innerHTML=`${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)}  <b style="color:${accCol(c.accuracy)};font-size:16px">●&nbsp;±${a}м</b><br>`+
  `Высота: ${c.altitude!=null?Math.round(c.altitude)+'м':'—'}  Курс: ${head!=null?Math.round(head)+'°':'—'}`}
 function startGps(){
@@ -130,7 +131,7 @@ let cross=true;$('bx').onclick=()=>{cross=!cross;$('cross').style.display=cross?
 const B=$('base'),D=$('dr'),bx=B.getContext('2d'),dx=D.getContext('2d');
 let strokes=[],cur=null,color='#ff453a';
 function loadBase(src,w,h){B.width=D.width=w;B.height=D.height=h;bx.drawImage(src,0,0,w,h);stamp(w,h);if(cross)drawCross(w,h);strokes=[];redraw();show('ed')}
-function drawCross(w,h){const m=Math.max(w,h),r=m/45,lw=Math.max(2,m/600),x=w/2,y=h/2;
+function drawCross(w,h){const m=Math.max(w,h),r=m/90,lw=Math.max(3,m/400),x=w/2,y=h/2;
  [['#000',lw*2.2],['#fff',lw]].forEach(([c,k])=>{bx.strokeStyle=c;bx.lineWidth=k;bx.lineCap='round';bx.beginPath();bx.moveTo(x-r,y);bx.lineTo(x+r,y);bx.moveTo(x,y-r);bx.lineTo(x,y+r);bx.stroke()})}
 function stamp(w,h){const s=Math.max(w,h)/55,c=pos&&pos.coords;
  bx.font=`${s}px -apple-system,Helvetica,Arial,sans-serif`;bx.textBaseline='top';
@@ -163,35 +164,26 @@ D.onpointerup=D.onpointercancel=()=>{if(cur){strokes.push(cur);cur=null;redraw()
 $('bu').onclick=()=>{strokes.pop();redraw()};$('bc').onclick=()=>{strokes=[];redraw()};
 $('bd').onclick=()=>show('vc');
 
-// Save
-// Telegram
-const cfg=()=>({t:localStorage.tgT||'',c:localStorage.tgC||'',p:localStorage.tgP!=='0'});
-const dbp=new Promise((res,rej)=>{const r=indexedDB.open('gpscam',1);r.onupgradeneeded=()=>r.result.createObjectStore('q',{autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-const tx=async(m,f)=>{const d=await dbp;return new Promise((res,rej)=>{const t=d.transaction('q',m),r=f(t.objectStore('q'));t.oncomplete=()=>res(r.result);t.onerror=()=>rej(t.error)})};
-let fl=false;
-async function flush(){const c=cfg();if(fl||!c.t||!c.c||!navigator.onLine)return;fl=true;
- try{const ks=await tx('readonly',s=>s.getAllKeys()),vs=await tx('readonly',s=>s.getAll());
-  for(let i=0;i<ks.length;i++){const v=vs[i],f=new FormData();f.append('chat_id',c.c);f.append('caption',v.cap);f.append('document',v.blob,v.name);
-   const j=await(await fetch(`https://api.telegram.org/bot${c.t}/sendDocument`,{method:'POST',body:f})).json();
-   if(j.ok){await tx('readwrite',s=>s.delete(ks[i]));msg('✈️ Отправлено в Telegram')}else{msg('Telegram: '+(j.description||'ошибка'));break}}
- }catch(e){}fl=false}
-addEventListener('online',flush);setTimeout(flush,1500);
-const tg=(m,p)=>fetch(`https://api.telegram.org/bot${$('tk').value.trim()}/${m}`,p).then(r=>r.json());
-$('bset').onclick=()=>{const c=cfg();$('tk').value=c.t;$('ci').value=c.c;$('pp').checked=c.p;show('vs')};
-$('bok').onclick=()=>{localStorage.tgT=$('tk').value.trim();localStorage.tgC=$('ci').value.trim();localStorage.tgP=$('pp').checked?'1':'0';show('vc');flush()};
-$('bfind').onclick=async()=>{try{const j=await tg('getUpdates');const u=(j.result||[]).reverse().find(x=>x.message);
- if(u){$('ci').value=u.message.chat.id;msg('Chat ID найден')}else msg(j.ok?'Сначала открой бота в Telegram и нажми Start':'Токен неверный')}catch(e){msg('Нет интернета')}};
-$('btest').onclick=async()=>{try{const j=await tg('sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:$('ci').value.trim(),text:'GPS Камера подключена ✅'})});msg(j.ok?'Проверь Telegram':'Ошибка: '+j.description)}catch(e){msg('Нет интернета')}};
-
-// Save
+// Send / save
+function capText(){const p=pos&&pos.coords,d=new Date().toLocaleString('ru-RU');
+ return p?`📍 ${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}\n±${Math.round(p.accuracy)}м, высота ${p.altitude!=null?Math.round(p.altitude)+'м':'—'}\nhttps://maps.google.com/?q=${p.latitude},${p.longitude}\n${d}`:d}
+let busy=false;
+$('btg').onclick=async()=>{if(busy)return;const c=cfg();
+ if(!c.t||!c.c){msg('Сначала настрой Telegram: ⚙️ на экране камеры');return}
+ busy=true;$('btg').textContent='Отправляю…';
+ try{const blob=await merged(),name='gps_'+Date.now()+'.jpg',cap=capText();
+  const f=new FormData();f.append('chat_id',c.c);f.append('caption',cap);f.append('document',blob,name);
+  try{const j=await(await fetch(`https://api.telegram.org/bot${c.t}/sendDocument`,{method:'POST',body:f})).json();
+   if(j.ok){msg('✈️ Отправлено в Telegram');show('vc')}else msg('Telegram: '+(j.description||'ошибка'))
+  }catch(e){
+   try{await tx('readwrite',s=>s.add({blob,cap,name}));msg('Нет связи. Фото в очереди, уйдёт само, когда появится интернет');show('vc')}
+   catch(e2){msg('Не удалось отправить: '+(e.message||e.name))}}
+ }catch(e){msg('Ошибка: '+(e.message||e.name))}
+ busy=false;$('btg').textContent='✈️ Отправить в Telegram'};
 $('bs').onclick=async()=>{
- const blob=await merged(),name='gps_'+Date.now()+'.jpg',file=new File([blob],name,{type:'image/jpeg'}),c=cfg(),d=new Date().toLocaleString('ru-RU');
- if(c.t&&c.c){const p=pos&&pos.coords;
-  const cap=p?`📍 ${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}\n±${Math.round(p.accuracy)}м, высота ${p.altitude!=null?Math.round(p.altitude)+'м':'—'}\nhttps://maps.google.com/?q=${p.latitude},${p.longitude}\n${d}`:d;
-  tx('readwrite',s=>s.add({blob,cap,name})).then(flush);
-  if(!c.p){msg('Отправляю в Telegram…');show('vc');return}}
+ const blob=await merged(),name='gps_'+Date.now()+'.jpg',file=new File([blob],name,{type:'image/jpeg'});
  try{
-  if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});msg('Выбери «Сохранить изображение», чтобы оно попало в Фото');show('vc');return}
+  if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});msg('Выбери «Сохранить изображение»');show('vc');return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();msg('Сохранено в загрузки');show('vc')
  }catch(e){if(e&&e.name!=='AbortError')msg('Не удалось сохранить: '+(e.message||e.name))}};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
